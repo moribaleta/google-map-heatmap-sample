@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Simple Map</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <script src="resources/js/library/jquery-3.0.0.min.js"></script>
+    <script src="resources/js/library/vue.js"></script>
+    <link rel="stylesheet" href="resources/css/style.css">
+</head>
+
+<body>
+    <div id="map"></div>
+    <div id="chart">
+        <div class="chart-item" v-for='item in colors'>
+            <p class="item-color" v-bind:style="{ background: item.color}"></p>
+            <p class="item-number" v-if="item.degree == 1000">{{item.degree}}+</p>
+            <p class="item-number" v-if="item.degree != 1000">{{item.degree}}</p>
+        </div>
+    </div>
+
+    <div class="timeframecontainer" id="timeframe">
+        <p>year</p>
+        <select class="input input-select" v-model="year_select" @change="onChange()">
+            <option v-for="year in years" :value="year">{{year || "NOT AVAILABLE"}}</option>
+        </select>
+        <p>month</p>
+        <select class="input input-select" v-model="month_select" @change="onChange()">
+            <option v-for="month in months" :value="month">{{month || "NOT AVAILABLE"}}</option>
+        </select>
+    </div>
+
+    <script src="resources/map/map_data.js"></script>
+    <script src="resources/sample_data/sampledata.js"></script>
+    <script>
+        /**
+         * timeframe app
+         * used for setting up the year and month of the 
+         * data to be displayed
+         */
+        var timeframe = new Vue({
+            el: '#timeframe',
+            data: {
+                map_data: null, //data of district
+                dataset: null, //raw data
+                years: [], //year to choose from the selection
+                months: [ //month of the year to choose from the selection
+                    'all',
+                    'JANUARY',
+                    'FEBRUARY',
+                    'MARCH',
+                    'APRIL',
+                    'MAY',
+                    'JUNE',
+                    'JULY',
+                    'AUGUST',
+                    'SEPTEMBER',
+                    'OCTOBER',
+                    'NOVEMBER',
+                    'DECEMBER',
+                    null
+                ],
+                year_select: null, //selected year
+                month_select: null //selected month
+            },
+            methods: {
+                /**
+                 * onChange triggers whenever the user choose 
+                 * from the selection
+                 * this will trigger the map change
+                 */
+                onChange() {
+                    district_data = []
+
+                    map_data.map((district) => { //generates array of fire reports each districts
+                        var count = 0
+                        this.dataset.forEach((element) => {
+                            if (element.DISTRICT == district &&
+                                (this.year_select == element.YEAR ||
+                                    this.year_select == "all")) {
+
+                                if (this.month_select == element.MONTH || this.month_select ==
+                                    "all")
+                                    count++
+                            }
+                        })
+                        district_data.push(count) //push number of fire of a district
+                        color_map.push(getColor(count)) //push new color
+                    })
+
+                    console.log({
+                        district_data,
+                        color_map
+                    })
+
+                    setColor()
+                    deleteMarkers()
+
+                    /**
+                     * if the year and month is set to all 
+                     * the app will push all the data to the map
+                     */
+
+                    this.dataset.map((data) => {
+                        if ((data.YEAR == this.year_select || this.year_select == "all") && (data.MONTH ==
+                                this.month_select || this.month_select == "all")) {
+
+                            setReportMarkers(data)
+                        }
+                    })
+
+                },
+
+                /**
+                 * initialize and sets the data of the app
+                 * dataset is the raw report data
+                 * district is the data categorized per district
+                 */
+                setData(dataset, district) {
+                    this.map_data = district
+                    this.dataset = dataset
+
+
+                    this.years.push("all") //adds the years array with all
+
+                    dataset.map((item) => {
+                        if (!this.years.includes(item.YEAR)) {
+                            this.years.push(item.YEAR)
+                        }
+                    })
+
+                    this.years.sort() //sort data from lowest to highest for chronological display of years
+                },
+            }
+        })
+
+        /**
+         * used to display the legend below the map
+         * -->optional!!!!!
+         */
+        var chart = new Vue({
+            el: '#chart',
+            data: {
+                //colors of each bar of degree
+                colors: [{
+                        degree: 0,
+                        color: '#00ff00'
+                    },
+                    {
+                        degree: 20,
+                        color: '#48ff00'
+                    },
+                    {
+                        degree: 50,
+                        color: '#90ff00'
+                    },
+                    {
+                        degree: 100,
+                        color: '#bfff00'
+                    },
+                    {
+                        degree: 200,
+                        color: '#ddff00'
+                    },
+                    {
+                        degree: 400,
+                        color: '#fff600'
+                    },
+                    {
+                        degree: 500,
+                        color: '#ffbb00'
+                    },
+                    {
+                        degree: 700,
+                        color: '#ff8c00'
+                    },
+                    {
+                        degree: 900,
+                        color: '#ff6600'
+                    },
+                    {
+                        degree: 1000,
+                        color: '#ff4300'
+                    }
+                ]
+            },
+        })
+
+        /**
+         * used for setting up the color of each district
+         * used for map for the polygon
+         */
+        const colors = [{
+                degree: 0,
+                color: '#00ff00'
+            },
+            {
+                degree: 20,
+                color: '#48ff00'
+            },
+            {
+                degree: 50,
+                color: '#90ff00'
+            },
+            {
+                degree: 100,
+                color: '#bfff00'
+            },
+            {
+                degree: 200,
+                color: '#ddff00'
+            },
+            {
+                degree: 400,
+                color: '#fff600'
+            },
+            {
+                degree: 500,
+                color: '#ffbb00'
+            },
+            {
+                degree: 700,
+                color: '#ff8c00'
+            },
+            {
+                degree: 900,
+                color: '#ff6600'
+            },
+            {
+                degree: 1000,
+                color: '#ff4300'
+            }
+        ]
+
+        /**
+         * getColor is used to determine what color to display
+         * the value parameter is a number
+         * returns the color from colors variable
+         */
+        function getColor(value) {
+            var degree = null
+            for (var i = 0; i < colors.length - 1; i++) {
+                if (colors[i].degree <= value && colors[i + 1].degree > value) {
+                    return colors[i].color
+                }
+            }
+            return colors[colors.length - 1].color
+        }
+
+        //global variable for the data of each district
+        var map_data = null
+
+        //global variable for the size of data of each district
+        var district_data = []
+
+        //global variable for storing color data of each district
+        var color_map = []
+
+        function onDataHandle(data) {
+            console.log(data)
+            map_data = []
+            data.forEach(element => { //gets the names of districts
+                //let district = element.district.replace("_"," ")
+                let district = element.DISTRICT
+                if (!map_data.includes(district)) {
+                    map_data.push(district)
+                }
+            });
+
+            console.log(map_data)
+
+            map_data.map((district) => { //generates array of fire reports each districts
+                var count = 0
+                data.forEach((element) => {
+                    if (element.DISTRICT == district && element.YEAR == "2011") {
+                        count++
+                    }
+                })
+                district_data.push(count) //push number of fire of a district
+                color_map.push(getColor(count)) //push new color
+            })
+            timeframe.setData(data, map_data)
+            initMap()
+        }
+
+        /**
+         * on initialize this will set trigger the processing of raw data from a json file
+         */
+        onDataHandle(sample_report_data)
+
+
+        /**
+         * this will return the color from the given district
+         */
+        function getColorByName(district) {
+            let index = map_data.indexOf(district)
+            return color_map[index]
+        }
+
+        /**
+         * this will return the name of the district 
+         */
+        function getDataByName(district) {
+            let index = map_data.indexOf(district)
+            return district_data[index]
+        }
+
+        //global variable for display the data to the google map
+        var map;
+        //global variable stores the markers
+        var markers = []
+
+        //<--global variable for storing each polygon of district
+        var tondo_district
+        var sta_cruz_district
+        var binondo_district
+        var san_nicolas_district
+        var port_area_district
+        var intramuros_district
+        var ermita_district
+        var san_miguel_district
+        var quiapo_district
+        var sampaloc_district
+        var sta_mesa_district
+        var paco_district
+        var malate_district
+        var san_andres_district
+        var pandacan_district
+        var sta_ana_district
+        //-->global variable for storing each polygon of district
+
+
+        /**
+         * used to create and initialize the map
+         */
+        function initMap() {
+
+            //creates the map
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: {
+                    lat: 14.5964983,
+                    lng: 120.9795598
+                },
+                zoom: 8,
+                maxZoom: 20,
+                zoomControl: false,
+                scaleControl: false,
+                scrollwheel: false,
+                disableDoubleClickZoom: true
+            });
+
+            //bounds is used to determine the edge of the map to display
+            var bounds = new google.maps.LatLngBounds();
+
+            //sets up map zooming 
+            var boundsListener = google.maps.event.addListener((map), 'bounds_changed', function (event) {
+                this.setZoom(13.6);
+                google.maps.event.removeListener(boundsListener);
+            });
+
+            //triggers the setMap to create the polygons
+            setMap()
+        }
+
+        /**
+         * used to generate the polygon of each district
+         * to be displayed on the map
+         */
+        function setMap() {
+
+            tondo_district = new google.maps.Polygon({
+                path: tondo.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Tondo') : '#DBE9BB',
+                fillOpacity: 0.8,
+                map: map
+            });
+
+            sta_cruz_district = new google.maps.Polygon({
+                path: sta_cruz.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Santa Cruz') : '#FDFAB5',
+                fillOpacity: 0.8,
+                map: map
+            });
+            binondo_district = new google.maps.Polygon({
+                path: binondo.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Binondo') : '#DCCEE4',
+                fillOpacity: 0.8,
+                map: map
+            });
+            san_nicolas_district = new google.maps.Polygon({
+                path: san_nicolas.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('San Nicolas') : '#ECCFC4',
+                fillOpacity: 0.8,
+                map: map
+            });
+            port_area_district = new google.maps.Polygon({
+                path: port_area.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Port Area') : '#F9F6B2',
+                fillOpacity: 0.8,
+                map: map
+            });
+            intramuros_district = new google.maps.Polygon({
+                path: intramuros.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Intramuros') : '#DBE9BB',
+                fillOpacity: 0.8,
+                map: map
+            });
+            ermita_district = new google.maps.Polygon({
+                path: ermita.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Ermita') : '#ECCFC4',
+                fillOpacity: 0.8,
+                map: map
+            });
+            san_miguel_district = new google.maps.Polygon({
+                path: san_miguel.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('San Miguel') : '#F4E5B7',
+                fillOpacity: 0.8,
+                map: map
+            });
+            quiapo_district = new google.maps.Polygon({
+                path: quiapo.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Quiapo') : '#DBE9BB',
+                fillOpacity: 0.8,
+                map: map
+            });
+            sampaloc_district = new google.maps.Polygon({
+                path: sampaloc.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Sampaloc') : '#ECCFC4',
+                fillOpacity: 0.8,
+                map: map
+            });
+            sta_mesa_district = new google.maps.Polygon({
+                path: sta_mesa.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Santa Mesa') : '#D8DFF1',
+                fillOpacity: 0.8,
+                map: map
+            });
+            paco_district = new google.maps.Polygon({
+                path: paco.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Paco') : '#DCCEE4',
+                fillOpacity: 0.8,
+                map: map
+            });
+            malate_district = new google.maps.Polygon({
+                path: malate.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Malate') : '#F4E5B7',
+                fillOpacity: 0.8,
+                map: map
+            });
+            san_andres_district = new google.maps.Polygon({
+                path: san_andres.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('San Andres') : '#D8DFF1',
+                fillOpacity: 0.8,
+                map: map
+            });
+            pandacan_district = new google.maps.Polygon({
+                path: pandacan.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Pandacan') : '#FDFAB5',
+                fillOpacity: 0.8,
+                map: map
+            });
+            sta_ana_district = new google.maps.Polygon({
+                path: sta_ana.coordinates,
+                strokeColor: '#000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: (map_data) ? getColorByName('Santa Ana') : '#DBE9BB',
+                fillOpacity: 0.8,
+                map: map
+            });
+
+            /**
+             * attach a marker to each polygon to the map
+             */
+            attachPolygonInfoWindow(tondo_district, tondo, 'Tondo')
+            attachPolygonInfoWindow(san_nicolas_district, san_nicolas, 'San_Nicolas')
+            attachPolygonInfoWindow(binondo_district, binondo, 'Binondo')
+            attachPolygonInfoWindow(sta_cruz_district, sta_cruz, 'Santa_Cruz')
+            attachPolygonInfoWindow(port_area_district, port_area, 'Port_Area')
+            attachPolygonInfoWindow(ermita_district, ermita, 'Ermita')
+            attachPolygonInfoWindow(quiapo_district, quiapo, 'Quiapo')
+            attachPolygonInfoWindow(san_miguel_district, san_miguel, 'San_Miguel')
+            attachPolygonInfoWindow(sampaloc_district, sampaloc, 'Sampaloc')
+            attachPolygonInfoWindow(san_andres_district, san_andres, 'San_Andres')
+            attachPolygonInfoWindow(malate_district, malate, 'Malate')
+            attachPolygonInfoWindow(sta_mesa_district, sta_mesa, 'Santa_Mesa')
+            attachPolygonInfoWindow(pandacan_district, pandacan, 'Pandacan')
+            attachPolygonInfoWindow(paco_district, paco, 'Paco')
+            attachPolygonInfoWindow(sta_ana_district, sta_ana, 'Santa_Ana')
+            attachPolygonInfoWindow(intramuros_district, intramuros, 'Intramuros')
+        }
+
+        /**
+         * attaches the marker of the polygon to the map
+         * polygon the Map Object to be display
+         * district is the map data from the resources/map
+         * name is the name of the district
+        */
+        function attachPolygonInfoWindow(polygon, district, name) {
+
+            var marker = new google.maps.Marker({
+                position: new google.maps.LatLng(district.center.lat, district.center.lng),
+                label: district.name,
+                map: map
+            });
+
+            google.maps.event.addListener(polygon, 'click', function (event) {
+                alert(district.name + " # of reports: " + getDataByName(name));
+            });
+        }
+
+        /**
+         * sets the color of each polygon
+         * used for updating the polygon in the map
+         */
+        function setColor() {
+
+            tondo_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Tondo') : '#DBE9BB'
+            });
+
+            sta_cruz_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Santa Cruz') : '#FDFAB5'
+            });
+
+            binondo_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Binondo') : '#DCCEE4'
+            });
+            san_nicolas_district.setOptions({
+                fillColor: (map_data) ? getColorByName('San Nicolas') : '#ECCFC4'
+            });
+            port_area_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Port Area') : '#F9F6B2',
+            });
+            intramuros_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Intramuros') : '#DBE9BB',
+            });
+            ermita_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Ermita') : '#ECCFC4',
+            });
+            san_miguel_district.setOptions({
+                fillColor: (map_data) ? getColorByName('San Miguel') : '#F4E5B7',
+            });
+            quiapo_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Quiapo') : '#DBE9BB',
+            });
+            sampaloc_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Sampaloc') : '#ECCFC4',
+            });
+            sta_mesa_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Santa Mesa') : '#D8DFF1',
+            });
+            paco_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Paco') : '#DCCEE4',
+            });
+            malate_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Malate') : '#F4E5B7',
+            });
+            san_andres_district.setOptions({
+                fillColor: (map_data) ? getColorByName('San Andres') : '#D8DFF1',
+            });
+            pandacan_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Pandacan') : '#FDFAB5',
+            });
+            sta_ana_district.setOptions({
+                fillColor: (map_data) ? getColorByName('Santa Ana') : '#DBE9BB',
+            })
+        }
+
+
+        /**
+         * used to determine which icon for the marker 
+         * used for displaying the icon of each report on the map
+         * to be displayed
+         * returns an Icon Object
+        */
+        function getIcon(item) {
+            //iconBase the base directory of the images to be displayed
+            //note: doesnt work on local directory eg: resources/images
+
+            let iconBase = 'https://bfpforecast.000webhostapp.com/admin/resources/images/';
+
+            //object contains the marker images
+            //key is the id of the marker
+            //icon is the image to be displayed
+            let markerIcons = [
+                {
+                    key: 'default',
+                    icon: iconBase + 'alarm_level_default.png',
+                }, {
+                    key: '1',
+                    icon: iconBase + 'alarm_level_1.png',
+                },
+                {
+                    key: '2',
+                    icon: iconBase + 'alarm_level_2.png',
+                },
+                {
+                    key: '3',
+                    icon: iconBase + 'alarm_level_3.png',
+                },
+                {
+                    key: '4',
+                    icon: iconBase + 'alarm_level_4.png',
+                },
+                {
+                    key: '5',
+                    icon: iconBase + 'alarm_level_5.png',
+                },
+                {
+                    key: 'alpha',
+                    icon: iconBase + 'alarm_level_alpha.png',
+                },
+                {
+                    key: 'bravo',
+                    icon: iconBase + 'alarm_level_bravo.png',
+                },
+                {
+                    key: 'charlie',
+                    icon: iconBase + 'alarm_level_charlie.png',
+                },
+                {
+                    key: 'delta',
+                    icon: iconBase + 'alarm_level_delta.png',
+                },
+                {
+                    key: 'echo',
+                    icon: iconBase + 'alarm_level_echo.png',
+                },
+                {
+                    key: 'general',
+                    icon: iconBase + 'alarm_level_general.png',
+                },
+
+            ];
+            //console.log(markerIcons)
+            var iconPath = null
+            
+            //finds the object from the markerIcons
+            markerIcons.map((level) => {
+                if (item.toLowerCase().includes(level.key)) {
+                    //if iconPath already has a value else replace the iconPath with level.icon
+                    iconPath = iconPath ? iconPath : level.icon
+                }
+            })
+
+            //returns an icon object
+            return {
+                url: iconPath || markerIcons[0].icon, // url
+                scaledSize: new google.maps.Size(10, 10), // scaled size
+                origin: new google.maps.Point(0, 0), // origin
+                anchor: new google.maps.Point(0, 0) // anchor
+            }
+        }
+
+        /**
+         * used to set a value to all markers 
+        */
+        function setMapOnAll(map) {
+            if (markers)
+                for (var i = 0; i < markers.length; i++) {
+                    markers[i].setMap(map);
+                }
+        }
+
+        // Removes the markers from the map, but keeps them in the array.
+        function clearMarkers() {
+            setMapOnAll(null);
+        }
+
+        /**
+         * deletes markers then reinitializes marker array as empty array
+        */
+        function deleteMarkers() {
+            clearMarkers();
+            markers = [];
+        }
+
+        /**
+         * used to attach each report marker to the map
+        */
+        function setReportMarkers(data) {
+            //adds a marker if it has lat long values
+            if (data.LATITUDE && data.LONGITUDE) {
+
+                //the alert level or degree of incidents the report
+                let level = data.ALERT_LEVEL
+
+                //get the icon by passing the alert level
+                let icon = getIcon(level)
+
+                //creates and initialize a marker instance
+                var marker = new google.maps.Marker({
+                    position: new google.maps.LatLng(data.LATITUDE, data.LONGITUDE),
+                    icon: icon,
+                    map: map
+                })
+
+                //adds a listener the marker to display certain data
+                //you can use this to trigger an event in your pp
+                google.maps.event.addListener(marker, 'click', function (event) {
+                    alert("DISTRICT: " + data.DISTRICT +
+                        "\n CAUSE " + data.CAUSE +
+                        "\n ESTABLISHMENT " + data.ESTABLISHMENT +
+                        "\n ALERT LEVEL " + data.ALERT_LEVEL +
+                        "\n AMOUNT OF DAMAGE" + data.AMOUNT_OF_DAMAGE)
+                });
+
+                //adds the marker to the markers array
+                markers.push(marker)
+            }
+        }
+    </script>
+
+    <!-- the script to use google maps add your own callback function here when the google maps initializes
+        note: add the API key from google maps 
+        https://maps.googleapis.com/maps/api/js?key=[YOUR API KEY]callback=[callback function]
+     -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBymq4YRMhZoMwnPUd2SfyzQQLEvUtafkM&callback=initMap"
+        async defer></script>
+</body>
+
+</html>
